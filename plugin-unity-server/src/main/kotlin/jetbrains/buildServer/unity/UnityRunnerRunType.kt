@@ -54,7 +54,7 @@ class UnityRunnerRunType(private val myPluginDescriptor: PluginDescriptor,
     }
 
     override fun getRunnerPropertiesProcessor(): PropertiesProcessor? {
-        return PropertiesProcessor { emptyList() }
+        return UnityRunnerRunTypePropertiesProcessor()
     }
 
     override fun getEditRunnerParamsJspFilePath(): String? {
@@ -65,8 +65,11 @@ class UnityRunnerRunType(private val myPluginDescriptor: PluginDescriptor,
         return myPluginDescriptor.getPluginResourcesPath("viewUnityParameters.jsp")
     }
 
-    override fun getDefaultRunnerProperties(): Map<String, String>? {
-        return emptyMap()
+    override fun getDefaultRunnerProperties(): MutableMap<String, String> {
+        val parameters = mutableMapOf<String,String>()
+        parameters[UnityConstants.PARAM_DETECTION_MODE] = UnityConstants.DETECTION_MODE_AUTO
+
+        return parameters
     }
 
     override fun describeParameters(parameters: Map<String, String>): String {
@@ -101,15 +104,17 @@ class UnityRunnerRunType(private val myPluginDescriptor: PluginDescriptor,
 
     override fun getRunnerSpecificRequirements(parameters: Map<String, String>): List<Requirement> {
         val requirements = mutableListOf<Requirement>()
-        parameters[UnityConstants.PARAM_UNITY_VERSION]?.let {
-            if (it.isNotBlank()) {
-                val name = escapeRegex(UnityConstants.UNITY_CONFIG_NAME) + escapeRegex(it.trim()) + ".*"
-                requirements.add(Requirement(RequirementQualifier.EXISTS_QUALIFIER + name, null, RequirementType.EXISTS))
+        val detectionMode = parameters[UnityConstants.PARAM_DETECTION_MODE]
+        if(detectionMode != UnityConstants.DETECTION_MODE_MANUAL) {
+            parameters[UnityConstants.PARAM_UNITY_VERSION]?.let {
+                if (it.isNotBlank()) {
+                    val name = escapeRegex(UnityConstants.UNITY_CONFIG_NAME) + escapeRegex(it.trim()) + ".*"
+                    requirements.add(Requirement(RequirementQualifier.EXISTS_QUALIFIER + name, null, RequirementType.EXISTS))
+                } else {
+                    val name = escapeRegex(UnityConstants.UNITY_CONFIG_NAME) + ".+"
+                    requirements.add(Requirement(RequirementQualifier.EXISTS_QUALIFIER + name, null, RequirementType.EXISTS))
+                }
             }
-        }
-        if (requirements.isEmpty()) {
-            val name = escapeRegex(UnityConstants.UNITY_CONFIG_NAME) + ".+"
-            requirements.add(Requirement(RequirementQualifier.EXISTS_QUALIFIER + name, null, RequirementType.EXISTS))
         }
         return requirements
     }

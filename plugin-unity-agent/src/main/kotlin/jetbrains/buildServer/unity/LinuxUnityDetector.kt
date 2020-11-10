@@ -28,48 +28,8 @@ class LinuxUnityDetector : UnityDetectorBase() {
 
     override fun findInstallations() = sequence {
         getHintPaths().distinct().forEach { path ->
-            LOG.debug("Looking for Unity installation in $path")
-
-            val executable = getEditorPath(path)
-            if (!executable.exists()) {
-                LOG.debug("Cannot find $executable")
-                return@forEach
-            }
-
-            LOG.debug("Looking for package manager in $path")
-            var version : String
-            val packageVersions = File(path, "Editor/Data/PackageManager/Unity/PackageManager")
-            if (packageVersions.exists()) {
-                val versions = packageVersions.listFiles { file ->
-                    file.isDirectory
-                } ?: return@forEach
-
-                if (versions.size != 1) {
-                    LOG.warn("Multiple Unity versions found in directory $path")
-                }
-
-                version = versions.first().name
-            } else {
-                version = path.name
-            }
-
-            // Unity version looks like that: 2017.1.1f1
-            // where suffix could be the following:
-            // * a  - alpha
-            // * b  - beta
-            // * p  - patch
-            // * rc - release candidate
-            // * f  - final
-            version = version
-                    .split("a", "b", "p", "rc", "f")
-                    .firstOrNull()
-                    ?: return@forEach
-
-            try {
-                yield(Semver(version, Semver.SemverType.LOOSE) to path)
-            } catch (e: Exception) {
-                LOG.infoAndDebugDetails("Invalid Unity version $version in directory $path", e)
-            }
+            val version = getVersionFromInstall(path) ?: return@forEach
+            yield(version to path)
         }
     }
 
@@ -87,6 +47,50 @@ class LinuxUnityDetector : UnityDetectorBase() {
         yieldAll(findUnityPaths(File("/opt/")))
     }
 
+    override fun getVersionFromInstall(editorRoot: File): Semver? {
+        LOG.debug("Looking for Unity installation in $editorRoot")
+        val executable = getEditorPath(editorRoot)
+        if (!executable.exists()) {
+          LOG.debug("Cannot find $executable")
+          return null
+        }
+
+        LOG.debug("Looking for package manager in $editorRoot")
+        var version : String
+        val packageVersions = File(editorRoot, "Editor/Data/PackageManager/Unity/PackageManager")
+        if (packageVersions.exists()) {
+            val versions = packageVersions.listFiles { file ->
+                file.isDirectory
+            } ?: return null
+
+            if (versions.size != 1) {
+                LOG.warn("Multiple Unity versions found in directory $editorRoot")
+            }
+
+            version = versions.first().name
+        } else {
+            version = editorRoot.name
+        }
+
+        // Unity version looks like that: 2017.1.1f1
+        // where suffix could be the following:
+        // * a  - alpha
+        // * b  - beta
+        // * p  - patch
+        // * rc - release candidate
+        // * f  - final
+        version = version
+                .split("a", "b", "p", "rc", "f")
+                .firstOrNull()
+                ?: return null
+
+        return try {
+            Semver(version, Semver.SemverType.LOOSE)
+        } catch (e: Exception) {
+            LOG.infoAndDebugDetails("Invalid Unity version $version in directory $editorRoot", e)
+            null
+        }
+    }
     companion object {
         private val LOG = Logger.getInstance(LinuxUnityDetector::class.java.name)
     }

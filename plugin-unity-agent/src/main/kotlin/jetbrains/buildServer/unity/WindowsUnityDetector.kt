@@ -29,21 +29,8 @@ class WindowsUnityDetector : UnityDetectorBase() {
 
     override fun findInstallations() = sequence {
         getHintPaths().distinct().forEach { path ->
-            LOG.debug("Looking for Unity installation in $path")
-
-            val executable = getEditorPath(path)
-            if (!executable.exists()) {
-                LOG.debug("Cannot find $executable")
-                return@forEach
-            }
-
-            val version = PEUtil.getProductVersion(executable)
-            if(version != null) {
-                yield(Semver("${version.p1}.${version.p2}.${version.p3}", Semver.SemverType.LOOSE) to path)
-            }
-            else {
-                LOG.debug("Cannot get version from $executable")
-            }
+            val version = getVersionFromInstall(path) ?: return@forEach
+            yield(version to path)
         }
     }
 
@@ -62,6 +49,23 @@ class WindowsUnityDetector : UnityDetectorBase() {
         }
     }
 
+    override fun getVersionFromInstall(editorRoot: File): Semver? {
+        LOG.debug("Looking for Unity installation in $editorRoot")
+
+        val executable = getEditorPath(editorRoot)
+        if(!executable.exists()) {
+            LOG.debug("Cannot find $executable")
+            return null
+        }
+
+        val version = PEUtil.getProductVersion(executable)
+        if(version != null) {
+            return Semver("${version.p1}.${version.p2}.${version.p3}", Semver.SemverType.LOOSE)
+        }
+        else {
+            LOG.debug("Cannot get version from $executable")
+        }
+    }
     companion object {
         private val LOG = Logger.getInstance(WindowsUnityDetector::class.java.name)
     }
