@@ -90,7 +90,7 @@ class UnityRunnerBuildService(
 
     override fun makeProgramCommandLine(): ProgramCommandLine {
         val (version, toolPath) = unityToolProvider.getUnity(UnityConstants.RUNNER_TYPE, build, runnerContext)
-        val arguments = mutableListOf("-batchmode")
+        val arguments = mutableListOf("-batchmode", ARG_QUIT)
 
         var projectPath = "./"
         parameters.value[UnityConstants.PARAM_PROJECT_PATH]?.let {
@@ -141,6 +141,12 @@ class UnityRunnerBuildService(
             }
         }
 
+        parameters.value[UnityConstants.PARAM_NO_QUIT]?.let {
+            if (it.toBoolean()) {
+                arguments.remove(ARG_QUIT)
+            }
+        }
+
         parameters.value[UnityConstants.PARAM_EXECUTE_METHOD]?.let {
             if (it.isNotEmpty()) {
                 arguments.addAll(listOf("-executeMethod", it.trim()))
@@ -180,10 +186,12 @@ class UnityRunnerBuildService(
         val runTests = parameters.value[UnityConstants.PARAM_RUN_EDITOR_TESTS]?.toBoolean() ?: false
         val testPlatform = parameters.value[UnityConstants.PARAM_TEST_PLATFORM]
 
-        // For tests run we should not add -quit argument
         val runTestIndex = arguments.indexOfFirst { RUN_TESTS_REGEX.matches(it) }
         if (runTestIndex < 0) {
             if (runTests) {
+                // For tests run we should remove -quit argument
+                arguments.remove(ARG_QUIT);
+
                 // Append -runTests argument if selected test platform
                 // otherwise use -runEditorTests argument
                 if (testPlatform.isNullOrEmpty()) {
@@ -192,7 +200,6 @@ class UnityRunnerBuildService(
                     arguments.addAll(listOf(ARG_RUN_TESTS, "-testPlatform", testPlatform))
                 }
             } else {
-                arguments.add("-quit")
                 return
             }
         }
@@ -321,6 +328,7 @@ class UnityRunnerBuildService(
         private const val ARG_EDITOR_TESTS_RESULT_FILE = "-editorTestsResultFile"
         private const val ARG_LOG_FILE = "-logFile"
         private const val ARG_NO_GRAPHICS = "-nographics"
+        private const val ARG_QUIT= "-quit"
         private const val LOG_FILE_ACCESS_MODE = "rw"
         private val RUN_TESTS_REGEX = Regex("-run(Editor)?Tests")
         private val RUN_TEST_RESULTS_REGEX = Regex("-(editorTestsResultFile|testResults)")
